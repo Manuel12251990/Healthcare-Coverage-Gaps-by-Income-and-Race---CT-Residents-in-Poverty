@@ -1,0 +1,52 @@
+--CTEs, Case Statements, window functions, joins) that simulates how I arrived at the final version 
+
+-- Step 1: Create raw synthetic base table 
+SELECT *
+INTO dbo.Health_Equity_CT
+FROM OPENROWSET(
+BULK '\HealthCare Access CT Analysis\Dataset\ACS Data Tables\Relevant Files\Synthetic_Health_Equity_CT_2013_2023.csv',
+FORMAT = 'CSV',
+FIRSTROW = 2
+) AS data;
+
+-- Step 2: Clean and standardize age buckets
+WITH Cleaned AS (
+SELECT *,
+CASE 
+WHEN [Age Group] = '0-4' THEN 'Under 5'
+WHEN [Age Group] = '5-17' THEN '5-17'
+WHEN [Age Group] = '18-34' THEN '18-34'
+WHEN [Age Group] = '35-64' THEN '35-64'
+ELSE '65+'
+END AS Age_Bucket
+FROM Health_Equity_CT
+),
+
+-- Step 3: Add poverty flag and uninsured poverty flag
+PovertyFlags AS (
+SELECT *,
+CASE WHEN [Poverty Status] = 'Below Poverty' THEN 1 ELSE 0 END AS Poverty_Flag,
+CASE 
+WHEN [Poverty Status] = 'Below Poverty' AND [Insurance Status] = 'Uninsured' THEN 1 
+ELSE 0 
+END AS Poverty_Uninsured_Flag
+FROM Cleaned
+),
+
+-- Step 4: Aggregate totals per Race + Year using window functions
+Aggregated AS (
+SELECT *,
+SUM(Poverty_Flag) OVER (PARTITION BY Year, Race) AS Total_Poverty_By_Race_Year,
+SUM(Poverty_Uninsured_Flag) OVER (PARTITION BY Year, Race) AS Uninsured_Poverty_By_Race_Year
+FROM PovertyFlags
+)
+
+-- Step 5: Final Select with computed uninsured rate and geography included
+SELECT 
+*,
+ROUND(
+CAST(Uninsured_Poverty_By_Race_Year AS FLOAT) / NULLIF(Total_Poverty_By_Race_Year, 0) * 100, 
+2
+) AS Uninsured_Rate_Pct
+INTO dbo.Health_Equity_CT_Final
+FROM Aggregated;
