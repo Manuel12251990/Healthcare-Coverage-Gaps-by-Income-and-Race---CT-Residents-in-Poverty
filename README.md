@@ -2,6 +2,8 @@
 
 This project visualizes disparities in healthcare insurance coverage across income levels and racial groups in Connecticut from 2013 to 2021, using synthetic data.
 
+https://public.tableau.com/app/profile/manuel.lizardo/viz/HealthcareInequityinCT/HealthcareInequityinCT
+
 ## Objective 
 To highlight how race and income influence healthcare access, with an interactive Tableau dashboard featuring KPIs, maps, and year-over-year trends.
 
